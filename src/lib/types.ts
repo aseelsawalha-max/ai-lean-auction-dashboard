@@ -31,6 +31,8 @@ export type AIIssueCategory =
   | "Scheduling issue"
   | "Incorrect / missing information"
   | "Unit no longer proceeding to auction"
+  | "BOG unavailable / turnover"
+  | "Facility on hold / offboarding"
   | "No Delay"
   | "Other"
   | "Unknown";

@@ -17,7 +17,10 @@ export function daysOverdue(unit: AuctionUnit, today: Date): number {
   const deadline = new Date(unit.requiredPhotoDeadline);
   const isDone =
     unit.requestStatus === "Completed" || unit.requestStatus === "Responded - Photos Uploaded";
-  const reference = isDone && unit.photosReceivedDate ? new Date(unit.photosReceivedDate) : today;
+  // When a unit is already resolved but the exact received date is unknown
+  // (real imported data often lacks this column), treat it as resolved by
+  // the deadline rather than fabricating overdue days against "today".
+  const reference = isDone ? new Date(unit.photosReceivedDate ?? unit.requiredPhotoDeadline) : today;
   const diff = daysBetween(reference, deadline);
   return diff > 0 ? diff : 0;
 }
@@ -43,6 +46,15 @@ export function computeSeverity(unit: AuctionUnit, today: Date): Severity {
 
   const countdown = deadlineCountdown(unit, today);
   const overdue = daysOverdue(unit, today);
+
+  // A unit with no photo-tracking activity at all is capped at Medium
+  // rather than Critical/High: the sheets don't distinguish "nobody has
+  // requested photos yet" from "this row simply wasn't part of the
+  // tracked workflow," so we can't assert this is a confirmed miss the
+  // way we can for a unit with a logged, unresolved request.
+  if (unit.requestStatus === "Not Requested") {
+    return countdown !== null && countdown <= 3 ? "Medium" : "Low";
+  }
 
   if (unit.requestStatus === "Escalation Needed" || overdue > 7) return "Critical";
   if (overdue > 0) return "High";
@@ -120,12 +132,17 @@ export function computeKPIs(units: EnrichedUnit[]): KPISet {
       u.requestStatus === "Requested - Awaiting Response" ||
       u.requestStatus === "Delayed / No Response"
   ).length;
-  const overdueRequests = units.filter((u) => u.daysOverdue > 0).length;
+  // Excludes "Not Requested" units: a passed deadline with zero logged
+  // activity isn't a confirmed overdue request, just an absence of data —
+  // see the "No photo activity logged" insight for that count separately.
+  const overdueRequests = units.filter((u) => u.daysOverdue > 0 && u.requestStatus !== "Not Requested").length;
   const escalationsNeeded = units.filter((u) => u.requestStatus === "Escalation Needed").length;
   const bogDelays = units.filter((u) => u.responsibleParty === "BOG").length;
   const ownerDelays = units.filter((u) => u.responsibleParty === "Owner").length;
+  // Excludes "Not Requested" units, which default to "Unknown" responsible
+  // party purely for lack of a logged request — not a real attributed delay.
   const otherUnknownDelays = units.filter(
-    (u) => u.responsibleParty === "Other" || u.responsibleParty === "Unknown"
+    (u) => u.requestStatus !== "Not Requested" && (u.responsibleParty === "Other" || u.responsibleParty === "Unknown")
   ).length;
 
   const completed = units.filter((u) => u.photosReceivedDate && u.requiredPhotoDeadline);

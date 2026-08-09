@@ -37,7 +37,7 @@ export function generateWeeklySummary(
       pendingRequests: mUnits.filter(
         (u) => u.requestStatus === "Requested - Awaiting Response" || u.requestStatus === "Delayed / No Response"
       ).length,
-      overdueUnits: mUnits.filter((u) => u.daysOverdue > 0).length,
+      overdueUnits: mUnits.filter((u) => u.daysOverdue > 0 && u.requestStatus !== "Not Requested").length,
       escalations: mUnits.filter((u) => u.requestStatus === "Escalation Needed").length,
       bogDelays: mUnits.filter((u) => u.responsibleParty === "BOG").length,
       ownerDelays: mUnits.filter((u) => u.responsibleParty === "Owner").length,
@@ -111,10 +111,12 @@ export function generateMonthlyReport(
     .slice(0, 3)
     .map((f) => `${f.facilityName} (${(f.ownerIssuePct ?? 0).toFixed(0)}% owner issue rate)`);
 
-  const byOverdue = [...facilityStats].sort((a, b) => (b.overduePct ?? 0) - (a.overduePct ?? 0))[0];
-  const byFollowUp = [...facilityStats].sort(
-    (a, b) => (b.avgFollowUpAttempts ?? 0) - (a.avgFollowUpAttempts ?? 0)
-  )[0];
+  const byOverdue = [...facilityStats]
+    .filter((f) => (f.overduePct ?? 0) > 0)
+    .sort((a, b) => (b.overduePct ?? 0) - (a.overduePct ?? 0))[0];
+  const byFollowUp = [...facilityStats]
+    .filter((f) => (f.avgFollowUpAttempts ?? 0) > 0)
+    .sort((a, b) => (b.avgFollowUpAttempts ?? 0) - (a.avgFollowUpAttempts ?? 0))[0];
 
   let biggestImprovement: string | null = null;
   let biggestDecline: string | null = null;
@@ -143,9 +145,11 @@ export function generateMonthlyReport(
     }
   }
 
-  const executiveSummary = `${cycle.name} closed with ${currentStats.totalPhotoRequests} photo requests across ${currentStats.totalUnits} units. ${
-    currentStats.onTimeCompletionRate !== null ? currentStats.onTimeCompletionRate.toFixed(0) : "N/A"
-  }% of completed requests were on time, with BOG responsible for ${currentStats.bogDelays} delayed unit${
+  const onTimeClause =
+    currentStats.onTimeCompletionRate !== null
+      ? `${currentStats.onTimeCompletionRate.toFixed(0)}% of completed requests were on time`
+      : "no requests have been completed yet";
+  const executiveSummary = `${cycle.name} closed with ${currentStats.totalPhotoRequests} photo requests across ${currentStats.totalUnits} units. ${onTimeClause}, with BOG responsible for ${currentStats.bogDelays} delayed unit${
     currentStats.bogDelays === 1 ? "" : "s"
   } and owners responsible for ${currentStats.ownerDelays}. Overall on-time performance is ${trend.toLowerCase()} versus the prior cycle.`;
 

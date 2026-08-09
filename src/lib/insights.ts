@@ -25,6 +25,27 @@ export function generateInsights(
     (a, b) => new Date(a.cycleDate).getTime() - new Date(b.cycleDate).getTime()
   );
 
+  // 0. Data-quality caveat: units past deadline with zero logged photo
+  // activity. This is deliberately reported separately from "Overdue" —
+  // a blank row could mean the request was never made, or just that this
+  // manager's sheet wasn't used to track it. Not a confirmed miss either
+  // way, so it's surfaced as a caveat rather than folded into the KPI.
+  const noActivityPastDeadline = units.filter(
+    (u) => u.requestStatus === "Not Requested" && u.requiredPhotoDeadline && u.deadlineCountdown !== null && u.deadlineCountdown < 0
+  );
+  if (noActivityPastDeadline.length > 0) {
+    const byFacility = new Map<string, number>();
+    for (const u of noActivityPastDeadline) byFacility.set(u.facilityId, (byFacility.get(u.facilityId) ?? 0) + 1);
+    const topFacilities = [...byFacility.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([id, n]) => `${facilityName(id)} (${n})`);
+    insights.push({
+      text: `${noActivityPastDeadline.length} units have no photo-tracking activity logged at all and their deadline has passed — this may mean the request was never made, or simply that these rows weren't tracked in the sheet. Recommend confirming with Site Managers before treating these as confirmed misses. Top facilities: ${topFacilities.join(", ")}.`,
+      severity: "warning",
+    });
+  }
+
   // 1. BOG rate trend across cycles
   const rateByCycle = orderedCycles.map((c) => ({
     cycle: c,

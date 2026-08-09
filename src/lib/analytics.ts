@@ -23,11 +23,14 @@ export interface CycleStats {
 
 export function computeCycleStats(units: EnrichedUnit[], cycle: AuctionCycle): CycleStats {
   const cycleUnits = units.filter((u) => u.auctionCycleId === cycle.id);
+  // "Not Requested" units are excluded from delay/overdue/follow-up
+  // metrics below — a passed deadline with zero logged activity isn't a
+  // confirmed miss, just an absence of data (see the AI Insights caveat).
   const requested = cycleUnits.filter((u) => u.requestStatus !== "Not Requested");
   const received = cycleUnits.filter((u) => u.photosReceivedDate);
   const onTime = received.filter((u) => u.onTime);
   const late = received.filter((u) => u.onTime === false);
-  const overdue = cycleUnits.filter((u) => u.daysOverdue > 0);
+  const overdue = requested.filter((u) => u.daysOverdue > 0);
   const escalated = cycleUnits.filter((u) => u.requestStatus === "Escalation Needed");
 
   return {
@@ -40,9 +43,9 @@ export function computeCycleStats(units: EnrichedUnit[], cycle: AuctionCycle): C
     onTime: onTime.length,
     late: late.length,
     overdueUnits: overdue.length,
-    bogDelays: cycleUnits.filter((u) => u.responsibleParty === "BOG").length,
-    ownerDelays: cycleUnits.filter((u) => u.responsibleParty === "Owner").length,
-    otherDelays: cycleUnits.filter((u) => u.responsibleParty === "Other" || u.responsibleParty === "Unknown").length,
+    bogDelays: requested.filter((u) => u.responsibleParty === "BOG").length,
+    ownerDelays: requested.filter((u) => u.responsibleParty === "Owner").length,
+    otherDelays: requested.filter((u) => u.responsibleParty === "Other" || u.responsibleParty === "Unknown").length,
     avgResponseTimeDays: average(
       cycleUnits
         .filter((u) => u.photoRequestDate && u.photosReceivedDate)
@@ -53,8 +56,8 @@ export function computeCycleStats(units: EnrichedUnit[], cycle: AuctionCycle): C
         )
     ),
     avgDaysOverdue: average(overdue.map((u) => u.daysOverdue)),
-    avgFollowUpAttempts: average(cycleUnits.map((u) => u.followUpAttempts)),
-    escalationRate: pct(escalated.length, cycleUnits.length),
+    avgFollowUpAttempts: average(requested.map((u) => u.followUpAttempts)),
+    escalationRate: pct(escalated.length, requested.length),
     onTimeCompletionRate: pct(onTime.length, received.length),
   };
 }
@@ -94,17 +97,19 @@ export function computeFacilityStats(
   managerName: string
 ): FacilityStats {
   const fUnits = units.filter((u) => u.facilityId === facility.id);
+  // "Not Requested" units are excluded from overdue/delay metrics — see
+  // the equivalent note in computeCycleStats.
   const requested = fUnits.filter((u) => u.requestStatus !== "Not Requested");
   const received = fUnits.filter((u) => u.photosReceivedDate);
   const onTime = received.filter((u) => u.onTime);
   const late = received.filter((u) => u.onTime === false);
-  const overdue = fUnits.filter((u) => u.daysOverdue > 0);
+  const overdue = requested.filter((u) => u.daysOverdue > 0);
   const bog = requested.filter((u) => u.responsibleParty === "BOG");
   const owner = requested.filter((u) => u.responsibleParty === "Owner");
   const escalations = fUnits.filter((u) => u.requestStatus === "Escalation Needed");
 
   const cyclesWithIssues = new Set(
-    fUnits.filter((u) => u.responsibleParty === "BOG" || u.responsibleParty === "Owner" || u.daysOverdue > 0).map((u) => u.auctionCycleId)
+    requested.filter((u) => u.responsibleParty === "BOG" || u.responsibleParty === "Owner" || u.daysOverdue > 0).map((u) => u.auctionCycleId)
   ).size;
 
   return {
@@ -115,7 +120,7 @@ export function computeFacilityStats(
     totalPhotoRequests: requested.length,
     onTimePct: pct(onTime.length, received.length),
     latePct: pct(late.length, received.length),
-    overduePct: pct(overdue.length, fUnits.length),
+    overduePct: pct(overdue.length, requested.length),
     bogIssuePct: pct(bog.length, requested.length),
     ownerIssuePct: pct(owner.length, requested.length),
     avgResponseTimeDays: average(
@@ -128,7 +133,7 @@ export function computeFacilityStats(
         )
     ),
     avgDaysOverdue: average(overdue.map((u) => u.daysOverdue)),
-    avgFollowUpAttempts: average(fUnits.map((u) => u.followUpAttempts)),
+    avgFollowUpAttempts: average(requested.map((u) => u.followUpAttempts)),
     escalations: escalations.length,
     cyclesWithIssues,
   };

@@ -10,11 +10,22 @@ interface FacilityPerformanceProps {
   managers: Manager[];
 }
 
+// Facilities need at least this many logged photo requests before they're
+// eligible for the ranking — otherwise a single BOG-related unit at a
+// facility with only one request reads as "100% BOG issue rate" and drowns
+// out facilities with a real, high-volume pattern.
+const MIN_REQUESTS_FOR_RANKING = 3;
+
 export default function FacilityPerformance({ units, facilities, managers }: FacilityPerformanceProps) {
-  const stats = facilities
+  const allStats = facilities
     .map((f) => computeFacilityStats(units, f, managers.find((m) => m.id === f.managerId)?.name ?? "Unknown"))
-    .filter((s) => s.totalUnits > 0)
-    .sort((a, b) => (b.bogIssuePct ?? 0) - (a.bogIssuePct ?? 0));
+    .filter((s) => s.totalUnits > 0);
+
+  const excludedForVolume = allStats.filter((s) => s.totalPhotoRequests < MIN_REQUESTS_FOR_RANKING).length;
+
+  const stats = allStats
+    .filter((s) => s.totalPhotoRequests >= MIN_REQUESTS_FOR_RANKING)
+    .sort((a, b) => (b.bogIssuePct ?? 0) - (a.bogIssuePct ?? 0) || b.totalPhotoRequests - a.totalPhotoRequests);
 
   function flagReasons(s: (typeof stats)[number]): string[] {
     const flags: string[] = [];
@@ -30,7 +41,7 @@ export default function FacilityPerformance({ units, facilities, managers }: Fac
       <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
         <h3 className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Facility Ranking — Highest BOG Issue Rate</h3>
         <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
-          Ranked by share of photo requests where BOG is the responsible party. Owner-caused delays are tracked separately so BOG is not blamed for facility-owner issues.
+          Ranked by share of photo requests where BOG is the responsible party. Owner-caused delays are tracked separately so BOG is not blamed for facility-owner issues. Limited to facilities with at least {MIN_REQUESTS_FOR_RANKING} logged photo requests ({excludedForVolume} facilities excluded for low sample size — still visible via filters or export).
         </p>
       </div>
 

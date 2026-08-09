@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AUCTION_UNITS, AUCTION_CYCLES, FACILITIES, MANAGERS } from "@/lib/mockData";
+import { AUCTION_UNITS, AUCTION_CYCLES, FACILITIES, MANAGERS } from "@/lib/sheetsImport";
 import { enrichUnits, computeKPIs } from "@/lib/calculations";
 import { applyFilters, EMPTY_FILTERS, type FilterState } from "@/lib/filters";
 import KpiCards from "@/components/KpiCards";
