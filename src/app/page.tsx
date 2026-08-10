@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import { AUCTION_UNITS, AUCTION_CYCLES, FACILITIES, MANAGERS } from "@/lib/sheetsImport";
 import { enrichUnits, computeKPIs } from "@/lib/calculations";
 import { applyFilters, EMPTY_FILTERS, type FilterState } from "@/lib/filters";
+import type { AuctionUnit } from "@/lib/types";
 import KpiCards from "@/components/KpiCards";
 import FilterBar from "@/components/FilterBar";
-import UnitsTable from "@/components/UnitsTable";
+import UnitsTable, { type ManualOverridePatch } from "@/components/UnitsTable";
 import CycleAnalytics from "@/components/CycleAnalytics";
 import FacilityPerformance from "@/components/FacilityPerformance";
 import AIInsightsPanel from "@/components/AIInsightsPanel";
@@ -22,12 +23,47 @@ const SECTIONS = [
 ] as const;
 type Section = (typeof SECTIONS)[number];
 
+const OVERRIDES_STORAGE_KEY = "ai-lean-dashboard:manual-overrides";
+
+type OverridesByUnitId = Record<string, NonNullable<AuctionUnit["manualOverride"]>>;
+
+function loadStoredOverrides(): OverridesByUnitId {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = window.localStorage.getItem(OVERRIDES_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function DashboardPage() {
   const [section, setSection] = useState<Section>("Overview");
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  // Manual AI-classification corrections have no backend yet (see README
+  // "Known gaps"), so they're persisted client-side rather than lost on
+  // refresh. Swap for a real API call once a persistence layer exists.
+  const [overrides, setOverrides] = useState<OverridesByUnitId>(loadStoredOverrides);
+
+  function handleOverride(unitId: string, patch: ManualOverridePatch) {
+    setOverrides((prev) => {
+      const next = { ...prev, [unitId]: { ...prev[unitId], ...patch } };
+      try {
+        window.localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // storage unavailable — override still applies for this session
+      }
+      return next;
+    });
+  }
+
+  const unitsWithOverrides = useMemo(
+    () => AUCTION_UNITS.map((u) => (overrides[u.id] ? { ...u, manualOverride: overrides[u.id] } : u)),
+    [overrides]
+  );
 
   const today = useMemo(() => new Date(), []);
-  const allEnriched = useMemo(() => enrichUnits(AUCTION_UNITS, today), [today]);
+  const allEnriched = useMemo(() => enrichUnits(unitsWithOverrides, today), [unitsWithOverrides, today]);
   const filtered = useMemo(() => applyFilters(allEnriched, filters), [allEnriched, filters]);
   const kpis = useMemo(() => computeKPIs(filtered), [filtered]);
 
@@ -70,6 +106,7 @@ export default function DashboardPage() {
                 managers={MANAGERS}
                 facilities={FACILITIES}
                 cycles={AUCTION_CYCLES}
+                onOverride={handleOverride}
               />
             </div>
           </div>
@@ -78,7 +115,7 @@ export default function DashboardPage() {
         {section === "Current Auction Units" && (
           <div className="space-y-4">
             <KpiCards kpis={kpis} />
-            <UnitsTable units={filtered} managers={MANAGERS} facilities={FACILITIES} cycles={AUCTION_CYCLES} />
+            <UnitsTable units={filtered} managers={MANAGERS} facilities={FACILITIES} cycles={AUCTION_CYCLES} onOverride={handleOverride} />
           </div>
         )}
 

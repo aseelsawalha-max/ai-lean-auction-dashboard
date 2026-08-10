@@ -105,6 +105,16 @@ export interface ComputedUnitFields {
   deadlineCountdown: number | null; // negative if past due
   severity: Severity;
   onTime: boolean | null; // null if not yet completed
+
+  // Effective values: the admin's manualOverride applied on top of the AI
+  // classification, if any. Everything downstream (KPIs, filters, analytics,
+  // insights, reports, CSV export) reads these, not the raw AI call.
+  responsibleParty: ResponsibleParty;
+  aiIssueCategory: AIIssueCategory;
+  // The AI's original call, preserved even after an override so it's never lost.
+  aiOriginalResponsibleParty: ResponsibleParty;
+  aiOriginalAiIssueCategory: AIIssueCategory;
+  isOverridden: boolean;
 }
 
 export type EnrichedUnit = AuctionUnit & ComputedUnitFields;

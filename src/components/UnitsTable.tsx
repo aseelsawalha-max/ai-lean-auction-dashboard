@@ -1,17 +1,26 @@
 "use client";
 
-import type { EnrichedUnit, Facility, Manager, AuctionCycle } from "@/lib/types";
+import type { AIIssueCategory, AuctionUnit, EnrichedUnit, Facility, Manager, AuctionCycle, ResponsibleParty } from "@/lib/types";
 import { sortUnits } from "@/lib/calculations";
-import { SEVERITY_STYLES, rowColorClass, formatDate } from "@/lib/ui";
+import { SEVERITY_STYLES, RESPONSIBLE_PARTIES, ISSUE_CATEGORIES, rowColorClass, formatDate } from "@/lib/ui";
+
+export type ManualOverridePatch = Partial<NonNullable<AuctionUnit["manualOverride"]>>;
 
 interface UnitsTableProps {
   units: EnrichedUnit[];
   managers: Manager[];
   facilities: Facility[];
   cycles: AuctionCycle[];
+  // When provided, Responsible Party / AI Issue Category render as editable
+  // selects so an Admin can correct the AI's classification in place. The
+  // AI's original call is always preserved (aiOriginalResponsibleParty /
+  // aiOriginalAiIssueCategory) — this never overwrites it, only layers a
+  // correction on top per the spec's "Admins can correct AI classifications"
+  // requirement.
+  onOverride?: (unitId: string, patch: ManualOverridePatch) => void;
 }
 
-export default function UnitsTable({ units, managers, facilities, cycles }: UnitsTableProps) {
+export default function UnitsTable({ units, managers, facilities, cycles, onOverride }: UnitsTableProps) {
   const sorted = sortUnits(units);
   const managerName = (id: string) => managers.find((m) => m.id === id)?.name ?? id;
   const facilityName = (id: string) => facilities.find((f) => f.id === id)?.name ?? id;
@@ -65,16 +74,73 @@ export default function UnitsTable({ units, managers, facilities, cycles }: Unit
                   {countdown === null ? "—" : countdown < 0 ? `${Math.abs(countdown)}d overdue` : `${countdown}d left`}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">{u.requestStatus}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{u.responsibleParty}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {onOverride ? (
+                    <select
+                      value={u.responsibleParty}
+                      title={u.isOverridden ? `AI originally classified this as ${u.aiOriginalResponsibleParty}` : undefined}
+                      onChange={(e) =>
+                        onOverride(u.id, {
+                          responsibleParty: e.target.value as ResponsibleParty,
+                          overriddenBy: "Admin",
+                          overriddenAt: new Date().toISOString(),
+                        })
+                      }
+                      className={`rounded border bg-white dark:bg-slate-900 px-1 py-0.5 text-xs ${
+                        u.manualOverride?.responsibleParty
+                          ? "border-blue-400 text-blue-700 dark:text-blue-300"
+                          : "border-slate-200 dark:border-slate-700"
+                      }`}
+                    >
+                      {RESPONSIBLE_PARTIES.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    u.responsibleParty
+                  )}
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap">{formatDate(u.lastFollowUpDate)}</td>
                 <td className="px-3 py-2 text-center">{u.followUpAttempts}</td>
                 <td className="px-3 py-2 text-center">{u.daysWaiting ?? "—"}</td>
                 <td className="px-3 py-2 text-center font-medium">{u.daysOverdue > 0 ? u.daysOverdue : "—"}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  {u.aiIssueCategory}
+                  {onOverride ? (
+                    <select
+                      value={u.aiIssueCategory}
+                      title={u.isOverridden ? `AI originally classified this as ${u.aiOriginalAiIssueCategory}` : undefined}
+                      onChange={(e) =>
+                        onOverride(u.id, {
+                          aiIssueCategory: e.target.value as AIIssueCategory,
+                          overriddenBy: "Admin",
+                          overriddenAt: new Date().toISOString(),
+                        })
+                      }
+                      className={`rounded border bg-white dark:bg-slate-900 px-1 py-0.5 text-xs ${
+                        u.manualOverride?.aiIssueCategory
+                          ? "border-blue-400 text-blue-700 dark:text-blue-300"
+                          : "border-slate-200 dark:border-slate-700"
+                      }`}
+                    >
+                      {ISSUE_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    u.aiIssueCategory
+                  )}
                   {u.aiNeedsReview && (
                     <span className="ml-1 rounded bg-yellow-100 dark:bg-yellow-900/40 px-1 text-[10px] text-yellow-800 dark:text-yellow-300">
                       review
+                    </span>
+                  )}
+                  {u.isOverridden && (
+                    <span className="ml-1 rounded bg-blue-100 dark:bg-blue-900/40 px-1 text-[10px] text-blue-800 dark:text-blue-300">
+                      corrected
                     </span>
                   )}
                 </td>

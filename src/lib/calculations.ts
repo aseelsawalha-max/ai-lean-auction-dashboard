@@ -1,4 +1,4 @@
-import type { AuctionUnit, ComputedUnitFields, EnrichedUnit, Severity } from "./types";
+import type { AIIssueCategory, AuctionUnit, ComputedUnitFields, EnrichedUnit, ResponsibleParty, Severity } from "./types";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -62,6 +62,14 @@ export function computeSeverity(unit: AuctionUnit, today: Date): Severity {
   return "Low";
 }
 
+export function effectiveResponsibleParty(unit: AuctionUnit): ResponsibleParty {
+  return unit.manualOverride?.responsibleParty ?? unit.responsibleParty;
+}
+
+export function effectiveAiIssueCategory(unit: AuctionUnit): AIIssueCategory {
+  return unit.manualOverride?.aiIssueCategory ?? unit.aiIssueCategory;
+}
+
 export function enrichUnit(unit: AuctionUnit, today: Date): EnrichedUnit {
   const computed: ComputedUnitFields = {
     daysWaiting: daysWaiting(unit, today),
@@ -69,6 +77,11 @@ export function enrichUnit(unit: AuctionUnit, today: Date): EnrichedUnit {
     deadlineCountdown: deadlineCountdown(unit, today),
     severity: computeSeverity(unit, today),
     onTime: isOnTime(unit),
+    responsibleParty: effectiveResponsibleParty(unit),
+    aiIssueCategory: effectiveAiIssueCategory(unit),
+    aiOriginalResponsibleParty: unit.responsibleParty,
+    aiOriginalAiIssueCategory: unit.aiIssueCategory,
+    isOverridden: Boolean(unit.manualOverride?.responsibleParty || unit.manualOverride?.aiIssueCategory),
   };
   return { ...unit, ...computed };
 }

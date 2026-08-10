@@ -3,6 +3,7 @@
 import type { FilterState } from "@/lib/filters";
 import { EMPTY_FILTERS, hasActiveFilters } from "@/lib/filters";
 import type { Facility, Manager, AuctionCycle, RequestStatus, ResponsibleParty, AIIssueCategory } from "@/lib/types";
+import { RESPONSIBLE_PARTIES, ISSUE_CATEGORIES } from "@/lib/ui";
 import MultiSelect from "./MultiSelect";
 
 const REQUEST_STATUSES: RequestStatus[] = [
@@ -13,25 +14,6 @@ const REQUEST_STATUSES: RequestStatus[] = [
   "Escalation Needed",
   "Completed",
   "Cancelled / No Longer Going to Auction",
-];
-
-const RESPONSIBLE_PARTIES: ResponsibleParty[] = ["BOG", "Owner", "Site Manager", "Other", "Unknown", "No Delay"];
-
-const ISSUE_CATEGORIES: AIIssueCategory[] = [
-  "BOG no response",
-  "BOG delayed response",
-  "Owner delay",
-  "Owner failed to provide photos",
-  "Site Manager follow-up issue",
-  "Access issue",
-  "Scheduling issue",
-  "Incorrect / missing information",
-  "Unit no longer proceeding to auction",
-  "BOG unavailable / turnover",
-  "Facility on hold / offboarding",
-  "No Delay",
-  "Other",
-  "Unknown",
 ];
 
 interface FilterBarProps {
