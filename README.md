@@ -150,8 +150,16 @@ Then open http://localhost:3000.
   intentionally, since no AI provider access was wired into this build. It's
   structured so swapping in a real model is a one-function change.
 - Manual correction of AI classifications (per the spec's "Admins can
-  correct AI classifications" requirement) is modeled in the data type
-  (`manualOverride` on `AuctionUnit`) but has no UI yet.
+  correct AI classifications" requirement) now has a UI: a "Correct" /
+  "Edit" button on each row of the Current Auction Units table opens an
+  inline editor to override Responsible Party and AI Issue Category, with
+  a required "Corrected by" name and a "Revert to AI" option. Corrections
+  flow into every KPI, filter, chart, insight, report, and CSV export via
+  `enrichUnit()` in `calculations.ts`, while the AI's original call is
+  preserved (`aiOriginalResponsibleParty` / `aiOriginalAiIssueCategory` on
+  `EnrichedUnit`, surfaced as a tooltip on the "corrected" badge) and the
+  raw source data is never mutated. This is still in-memory only — it
+  resets on page reload until the persistence layer below exists.
 - The Current Auction Units table renders all matching rows without
   pagination/virtualization — fine for ~2,000 rows, worth revisiting if the
   dataset grows much further.

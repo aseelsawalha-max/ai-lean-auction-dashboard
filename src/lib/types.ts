@@ -37,6 +37,32 @@ export type AIIssueCategory =
   | "Other"
   | "Unknown";
 
+export const RESPONSIBLE_PARTIES: ResponsibleParty[] = [
+  "BOG",
+  "Owner",
+  "Site Manager",
+  "Other",
+  "Unknown",
+  "No Delay",
+];
+
+export const AI_ISSUE_CATEGORIES: AIIssueCategory[] = [
+  "BOG no response",
+  "BOG delayed response",
+  "Owner delay",
+  "Owner failed to provide photos",
+  "Site Manager follow-up issue",
+  "Access issue",
+  "Scheduling issue",
+  "Incorrect / missing information",
+  "Unit no longer proceeding to auction",
+  "BOG unavailable / turnover",
+  "Facility on hold / offboarding",
+  "No Delay",
+  "Other",
+  "Unknown",
+];
+
 export interface AuctionCycle {
   id: string;
   name: string; // e.g. "June 2026"
@@ -105,6 +131,12 @@ export interface ComputedUnitFields {
   deadlineCountdown: number | null; // negative if past due
   severity: Severity;
   onTime: boolean | null; // null if not yet completed
+
+  // The AI's original call, kept even after an admin correction overwrites
+  // `responsibleParty` / `aiIssueCategory` below with the effective value —
+  // so a correction is never destructive, just layered on top.
+  aiOriginalResponsibleParty: ResponsibleParty;
+  aiOriginalAiIssueCategory: AIIssueCategory;
 }
 
 export type EnrichedUnit = AuctionUnit & ComputedUnitFields;

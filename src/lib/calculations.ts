@@ -69,8 +69,19 @@ export function enrichUnit(unit: AuctionUnit, today: Date): EnrichedUnit {
     deadlineCountdown: deadlineCountdown(unit, today),
     severity: computeSeverity(unit, today),
     onTime: isOnTime(unit),
+    aiOriginalResponsibleParty: unit.responsibleParty,
+    aiOriginalAiIssueCategory: unit.aiIssueCategory,
   };
-  return { ...unit, ...computed };
+  // An admin correction (unit.manualOverride) replaces responsibleParty /
+  // aiIssueCategory for every downstream consumer (KPIs, filters, analytics,
+  // insights, reports, CSV export) — the AI's original call is preserved
+  // above in aiOriginal*, and the raw AuctionUnit itself is never mutated.
+  return {
+    ...unit,
+    ...computed,
+    responsibleParty: unit.manualOverride?.responsibleParty ?? unit.responsibleParty,
+    aiIssueCategory: unit.manualOverride?.aiIssueCategory ?? unit.aiIssueCategory,
+  };
 }
 
 export function enrichUnits(units: AuctionUnit[], today: Date): EnrichedUnit[] {

@@ -21,6 +21,8 @@ const COLUMNS: Array<{ header: string; get: (u: EnrichedUnit, ctx: ExportContext
   { header: "AI Root Cause", get: (u) => u.aiRootCause },
   { header: "AI Confidence", get: (u) => u.aiConfidenceScore },
   { header: "Needs Review", get: (u) => (u.aiNeedsReview ? "Yes" : "No") },
+  { header: "Manually Corrected By", get: (u) => u.manualOverride?.overriddenBy ?? "" },
+  { header: "Manually Corrected At", get: (u) => u.manualOverride?.overriddenAt ?? "" },
   { header: "Original Notes", get: (u) => u.originalNotes },
   { header: "Source Sheet", get: (u) => u.sourceSheetName },
 ];
