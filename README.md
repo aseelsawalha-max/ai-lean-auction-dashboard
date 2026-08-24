@@ -150,8 +150,15 @@ Then open http://localhost:3000.
   intentionally, since no AI provider access was wired into this build. It's
   structured so swapping in a real model is a one-function change.
 - Manual correction of AI classifications (per the spec's "Admins can
-  correct AI classifications" requirement) is modeled in the data type
-  (`manualOverride` on `AuctionUnit`) but has no UI yet.
+  correct AI classifications" requirement) now has a UI: the Responsible
+  Party and AI Issue Category cells in the Current Auction Units table are
+  editable dropdowns (`src/lib/overrides.ts`, wired into `UnitsTable.tsx`).
+  A corrected cell gets a blue outline and the change flows into every KPI,
+  cycle/facility rollup, and insight downstream, while the AI's original
+  call and an audit trail (who/when) stay on `manualOverride`. There's still
+  no backend, so corrections persist to the browser's `localStorage` rather
+  than a database — swapping in a real API is a one-function change in
+  `overrides.ts`.
 - The Current Auction Units table renders all matching rows without
   pagination/virtualization — fine for ~2,000 rows, worth revisiting if the
   dataset grows much further.

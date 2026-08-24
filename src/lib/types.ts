@@ -37,6 +37,44 @@ export type AIIssueCategory =
   | "Other"
   | "Unknown";
 
+// Shared value lists for the unions above, used by filters and by the
+// manual-override editor so both stay in sync with the type definitions.
+export const REQUEST_STATUSES: RequestStatus[] = [
+  "Not Requested",
+  "Requested - Awaiting Response",
+  "Responded - Photos Uploaded",
+  "Delayed / No Response",
+  "Escalation Needed",
+  "Completed",
+  "Cancelled / No Longer Going to Auction",
+];
+
+export const RESPONSIBLE_PARTIES: ResponsibleParty[] = [
+  "BOG",
+  "Owner",
+  "Site Manager",
+  "Other",
+  "Unknown",
+  "No Delay",
+];
+
+export const AI_ISSUE_CATEGORIES: AIIssueCategory[] = [
+  "BOG no response",
+  "BOG delayed response",
+  "Owner delay",
+  "Owner failed to provide photos",
+  "Site Manager follow-up issue",
+  "Access issue",
+  "Scheduling issue",
+  "Incorrect / missing information",
+  "Unit no longer proceeding to auction",
+  "BOG unavailable / turnover",
+  "Facility on hold / offboarding",
+  "No Delay",
+  "Other",
+  "Unknown",
+];
+
 export interface AuctionCycle {
   id: string;
   name: string; // e.g. "June 2026"
