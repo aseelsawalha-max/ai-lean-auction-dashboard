@@ -1,6 +1,7 @@
 "use client";
 
-import type { EnrichedUnit, Facility, Manager, AuctionCycle } from "@/lib/types";
+import type { EnrichedUnit, Facility, Manager, AuctionCycle, ManualOverride, ResponsibleParty, AIIssueCategory } from "@/lib/types";
+import { RESPONSIBLE_PARTIES, AI_ISSUE_CATEGORIES } from "@/lib/types";
 import { sortUnits } from "@/lib/calculations";
 import { SEVERITY_STYLES, rowColorClass, formatDate } from "@/lib/ui";
 
@@ -9,9 +10,12 @@ interface UnitsTableProps {
   managers: Manager[];
   facilities: Facility[];
   cycles: AuctionCycle[];
+  /** AI's original call per unit id, before any admin correction — used to label edited cells. */
+  aiOriginalById?: Map<string, { responsibleParty: ResponsibleParty; aiIssueCategory: AIIssueCategory }>;
+  onOverride?: (unitId: string, patch: Partial<ManualOverride>) => void;
 }
 
-export default function UnitsTable({ units, managers, facilities, cycles }: UnitsTableProps) {
+export default function UnitsTable({ units, managers, facilities, cycles, aiOriginalById, onOverride }: UnitsTableProps) {
   const sorted = sortUnits(units);
   const managerName = (id: string) => managers.find((m) => m.id === id)?.name ?? id;
   const facilityName = (id: string) => facilities.find((f) => f.id === id)?.name ?? id;
@@ -65,13 +69,37 @@ export default function UnitsTable({ units, managers, facilities, cycles }: Unit
                   {countdown === null ? "—" : countdown < 0 ? `${Math.abs(countdown)}d overdue` : `${countdown}d left`}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">{u.requestStatus}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{u.responsibleParty}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {onOverride ? (
+                    <OverrideCell
+                      value={u.responsibleParty}
+                      options={RESPONSIBLE_PARTIES}
+                      isOverridden={!!u.manualOverride?.responsibleParty}
+                      aiOriginal={aiOriginalById?.get(u.id)?.responsibleParty}
+                      onChange={(v) => onOverride(u.id, { responsibleParty: v as ResponsibleParty })}
+                      onReset={() => onOverride(u.id, { responsibleParty: undefined })}
+                    />
+                  ) : (
+                    u.responsibleParty
+                  )}
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap">{formatDate(u.lastFollowUpDate)}</td>
                 <td className="px-3 py-2 text-center">{u.followUpAttempts}</td>
                 <td className="px-3 py-2 text-center">{u.daysWaiting ?? "—"}</td>
                 <td className="px-3 py-2 text-center font-medium">{u.daysOverdue > 0 ? u.daysOverdue : "—"}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  {u.aiIssueCategory}
+                  {onOverride ? (
+                    <OverrideCell
+                      value={u.aiIssueCategory}
+                      options={AI_ISSUE_CATEGORIES}
+                      isOverridden={!!u.manualOverride?.aiIssueCategory}
+                      aiOriginal={aiOriginalById?.get(u.id)?.aiIssueCategory}
+                      onChange={(v) => onOverride(u.id, { aiIssueCategory: v as AIIssueCategory })}
+                      onReset={() => onOverride(u.id, { aiIssueCategory: undefined })}
+                    />
+                  ) : (
+                    u.aiIssueCategory
+                  )}
                   {u.aiNeedsReview && (
                     <span className="ml-1 rounded bg-yellow-100 dark:bg-yellow-900/40 px-1 text-[10px] text-yellow-800 dark:text-yellow-300">
                       review
@@ -93,6 +121,51 @@ export default function UnitsTable({ units, managers, facilities, cycles }: Unit
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+interface OverrideCellProps<T extends string> {
+  value: T;
+  options: readonly T[];
+  isOverridden: boolean;
+  aiOriginal?: T;
+  onChange: (value: T) => void;
+  onReset: () => void;
+}
+
+// Inline select backing the "Admins can correct AI classifications" requirement.
+// The AI's own call is never touched — this only writes to `manualOverride`,
+// so switching back to "Reset" always recovers the original classification.
+function OverrideCell<T extends string>({ value, options, isOverridden, aiOriginal, onChange, onReset }: OverrideCellProps<T>) {
+  return (
+    <div className="flex items-center gap-1">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        title={isOverridden && aiOriginal ? `AI originally classified this as "${aiOriginal}"` : undefined}
+        className={`rounded border px-1 py-0.5 text-xs ${
+          isOverridden
+            ? "border-blue-400 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+            : "border-transparent bg-transparent hover:border-slate-300 dark:hover:border-slate-700"
+        }`}
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+      {isOverridden && (
+        <button
+          type="button"
+          onClick={onReset}
+          title="Reset to the AI's original classification"
+          className="text-[10px] text-blue-600 hover:underline dark:text-blue-400"
+        >
+          reset
+        </button>
+      )}
     </div>
   );
 }

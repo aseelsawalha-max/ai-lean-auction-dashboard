@@ -62,15 +62,28 @@ export function computeSeverity(unit: AuctionUnit, today: Date): Severity {
   return "Low";
 }
 
-export function enrichUnit(unit: AuctionUnit, today: Date): EnrichedUnit {
-  const computed: ComputedUnitFields = {
-    daysWaiting: daysWaiting(unit, today),
-    daysOverdue: daysOverdue(unit, today),
-    deadlineCountdown: deadlineCountdown(unit, today),
-    severity: computeSeverity(unit, today),
-    onTime: isOnTime(unit),
+// Admin corrections take effect for display, filtering, and analytics, but
+// never touch the AI's original call (unit.responsibleParty / aiIssueCategory)
+// — that stays intact in `manualOverride` alongside who/when it was corrected.
+function withManualOverride(unit: AuctionUnit): AuctionUnit {
+  if (!unit.manualOverride) return unit;
+  return {
+    ...unit,
+    responsibleParty: unit.manualOverride.responsibleParty ?? unit.responsibleParty,
+    aiIssueCategory: unit.manualOverride.aiIssueCategory ?? unit.aiIssueCategory,
   };
-  return { ...unit, ...computed };
+}
+
+export function enrichUnit(unit: AuctionUnit, today: Date): EnrichedUnit {
+  const effective = withManualOverride(unit);
+  const computed: ComputedUnitFields = {
+    daysWaiting: daysWaiting(effective, today),
+    daysOverdue: daysOverdue(effective, today),
+    deadlineCountdown: deadlineCountdown(effective, today),
+    severity: computeSeverity(effective, today),
+    onTime: isOnTime(effective),
+  };
+  return { ...effective, ...computed };
 }
 
 export function enrichUnits(units: AuctionUnit[], today: Date): EnrichedUnit[] {

@@ -127,7 +127,10 @@ and shouldn't be duplicated into another system.
   navigation sections from the spec (Overview, Current Auction Units,
   Auction Cycle Analytics, Facility & BOG Performance, AI Insights,
   Reports), a combinable global filter bar, and the severity color-coded
-  units table.
+  units table. Responsible Party and AI Issue Category are inline-editable
+  per row so Admins can correct an AI classification without losing the
+  AI's original call — corrections flow into KPIs/analytics/filters
+  immediately and persist per-browser via `localStorage`.
 
 ## Running locally
 
@@ -150,8 +153,12 @@ Then open http://localhost:3000.
   intentionally, since no AI provider access was wired into this build. It's
   structured so swapping in a real model is a one-function change.
 - Manual correction of AI classifications (per the spec's "Admins can
-  correct AI classifications" requirement) is modeled in the data type
-  (`manualOverride` on `AuctionUnit`) but has no UI yet.
+  correct AI classifications" requirement) now has an inline editor in the
+  Current Auction Units / Overview tables — the AI's original call is never
+  touched, only `manualOverride` is written, and "reset" always recovers it.
+  Persistence is per-browser `localStorage` for now (no backend yet), so
+  corrections don't sync across Admins — that needs the real persistence
+  layer below.
 - The Current Auction Units table renders all matching rows without
   pagination/virtualization — fine for ~2,000 rows, worth revisiting if the
   dataset grows much further.

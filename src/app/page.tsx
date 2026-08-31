@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { AUCTION_UNITS, AUCTION_CYCLES, FACILITIES, MANAGERS } from "@/lib/sheetsImport";
 import { enrichUnits, computeKPIs } from "@/lib/calculations";
 import { applyFilters, EMPTY_FILTERS, type FilterState } from "@/lib/filters";
+import type { ManualOverride } from "@/lib/types";
 import KpiCards from "@/components/KpiCards";
 import FilterBar from "@/components/FilterBar";
 import UnitsTable from "@/components/UnitsTable";
@@ -22,12 +23,79 @@ const SECTIONS = [
 ] as const;
 type Section = (typeof SECTIONS)[number];
 
+const OVERRIDES_STORAGE_KEY = "ai-lean-auction-overrides";
+// Fired whenever this tab writes to localStorage, so useSyncExternalStore
+// picks up same-tab changes too (the native "storage" event only fires for
+// *other* tabs/windows).
+const OVERRIDES_CHANGED_EVENT = "ai-lean-auction-overrides-changed";
+
+function subscribeToOverrides(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener(OVERRIDES_CHANGED_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(OVERRIDES_CHANGED_EVENT, callback);
+  };
+}
+
+function getOverridesSnapshot(): string {
+  return window.localStorage.getItem(OVERRIDES_STORAGE_KEY) ?? "{}";
+}
+
+// The dashboard is statically prerendered, so the server never has a real
+// localStorage value — always render "no overrides" for the server/first-
+// paint snapshot and let useSyncExternalStore swap in the real value after
+// mount, without triggering a hydration-mismatch error.
+function getOverridesServerSnapshot(): string {
+  return "{}";
+}
+
+function writeOverrides(next: Record<string, ManualOverride>) {
+  try {
+    window.localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event(OVERRIDES_CHANGED_EVENT));
+  } catch {
+    // best-effort persistence only
+  }
+}
+
 export default function DashboardPage() {
   const [section, setSection] = useState<Section>("Overview");
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  // Manual corrections to AI classifications, keyed by unit id. This is a
+  // prototype-grade persistence layer (per-browser localStorage) since the
+  // dashboard has no backend yet — see README "Known gaps". The underlying
+  // AI classification in AUCTION_UNITS is never mutated by this.
+  const overridesRaw = useSyncExternalStore(subscribeToOverrides, getOverridesSnapshot, getOverridesServerSnapshot);
+  const overrides = useMemo<Record<string, ManualOverride>>(() => {
+    try {
+      return JSON.parse(overridesRaw);
+    } catch {
+      return {};
+    }
+  }, [overridesRaw]);
+
+  function handleOverride(unitId: string, patch: Partial<ManualOverride>) {
+    const merged: ManualOverride = { ...overrides[unitId], ...patch, overriddenBy: "Admin", overriddenAt: new Date().toISOString() };
+    const next = { ...overrides };
+    if (!merged.responsibleParty && !merged.aiIssueCategory) {
+      delete next[unitId];
+    } else {
+      next[unitId] = merged;
+    }
+    writeOverrides(next);
+  }
 
   const today = useMemo(() => new Date(), []);
-  const allEnriched = useMemo(() => enrichUnits(AUCTION_UNITS, today), [today]);
+  const aiOriginalById = useMemo(
+    () => new Map(AUCTION_UNITS.map((u) => [u.id, { responsibleParty: u.responsibleParty, aiIssueCategory: u.aiIssueCategory }])),
+    []
+  );
+  const unitsWithOverrides = useMemo(
+    () => (Object.keys(overrides).length === 0 ? AUCTION_UNITS : AUCTION_UNITS.map((u) => (overrides[u.id] ? { ...u, manualOverride: overrides[u.id] } : u))),
+    [overrides]
+  );
+  const allEnriched = useMemo(() => enrichUnits(unitsWithOverrides, today), [unitsWithOverrides, today]);
   const filtered = useMemo(() => applyFilters(allEnriched, filters), [allEnriched, filters]);
   const kpis = useMemo(() => computeKPIs(filtered), [filtered]);
 
@@ -70,6 +138,8 @@ export default function DashboardPage() {
                 managers={MANAGERS}
                 facilities={FACILITIES}
                 cycles={AUCTION_CYCLES}
+                aiOriginalById={aiOriginalById}
+                onOverride={handleOverride}
               />
             </div>
           </div>
@@ -78,7 +148,14 @@ export default function DashboardPage() {
         {section === "Current Auction Units" && (
           <div className="space-y-4">
             <KpiCards kpis={kpis} />
-            <UnitsTable units={filtered} managers={MANAGERS} facilities={FACILITIES} cycles={AUCTION_CYCLES} />
+            <UnitsTable
+              units={filtered}
+              managers={MANAGERS}
+              facilities={FACILITIES}
+              cycles={AUCTION_CYCLES}
+              aiOriginalById={aiOriginalById}
+              onOverride={handleOverride}
+            />
           </div>
         )}
 

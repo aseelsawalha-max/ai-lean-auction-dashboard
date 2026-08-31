@@ -37,6 +37,34 @@ export type AIIssueCategory =
   | "Other"
   | "Unknown";
 
+// Canonical option lists for filters and the manual-override editor —
+// kept here so every consumer stays in sync with the type unions above.
+export const RESPONSIBLE_PARTIES: ResponsibleParty[] = [
+  "BOG",
+  "Owner",
+  "Site Manager",
+  "Other",
+  "Unknown",
+  "No Delay",
+];
+
+export const AI_ISSUE_CATEGORIES: AIIssueCategory[] = [
+  "BOG no response",
+  "BOG delayed response",
+  "Owner delay",
+  "Owner failed to provide photos",
+  "Site Manager follow-up issue",
+  "Access issue",
+  "Scheduling issue",
+  "Incorrect / missing information",
+  "Unit no longer proceeding to auction",
+  "BOG unavailable / turnover",
+  "Facility on hold / offboarding",
+  "No Delay",
+  "Other",
+  "Unknown",
+];
+
 export interface AuctionCycle {
   id: string;
   name: string; // e.g. "June 2026"
@@ -90,12 +118,14 @@ export interface AuctionUnit {
   aiNeedsReview: boolean; // flagged when classification is ambiguous/low-confidence
 
   // manual correction trail (admins can override AI without losing the AI's original call)
-  manualOverride?: {
-    responsibleParty?: ResponsibleParty;
-    aiIssueCategory?: AIIssueCategory;
-    overriddenBy?: string;
-    overriddenAt?: string;
-  };
+  manualOverride?: ManualOverride;
+}
+
+export interface ManualOverride {
+  responsibleParty?: ResponsibleParty;
+  aiIssueCategory?: AIIssueCategory;
+  overriddenBy?: string;
+  overriddenAt?: string;
 }
 
 // Derived, computed fields (never stored — always recalculated from "today")
