@@ -19,6 +19,15 @@ export type ResponsibleParty =
   | "Unknown"
   | "No Delay";
 
+export const RESPONSIBLE_PARTIES: ResponsibleParty[] = [
+  "BOG",
+  "Owner",
+  "Site Manager",
+  "Other",
+  "Unknown",
+  "No Delay",
+];
+
 export type Severity = "Critical" | "High" | "Medium" | "Low" | "Completed";
 
 export type AIIssueCategory =
@@ -36,6 +45,23 @@ export type AIIssueCategory =
   | "No Delay"
   | "Other"
   | "Unknown";
+
+export const AI_ISSUE_CATEGORIES: AIIssueCategory[] = [
+  "BOG no response",
+  "BOG delayed response",
+  "Owner delay",
+  "Owner failed to provide photos",
+  "Site Manager follow-up issue",
+  "Access issue",
+  "Scheduling issue",
+  "Incorrect / missing information",
+  "Unit no longer proceeding to auction",
+  "BOG unavailable / turnover",
+  "Facility on hold / offboarding",
+  "No Delay",
+  "Other",
+  "Unknown",
+];
 
 export interface AuctionCycle {
   id: string;

@@ -1,6 +1,8 @@
 "use client";
 
-import type { EnrichedUnit, Facility, Manager, AuctionCycle } from "@/lib/types";
+import type { EnrichedUnit, Facility, Manager, AuctionCycle, ResponsibleParty, AIIssueCategory } from "@/lib/types";
+import { RESPONSIBLE_PARTIES, AI_ISSUE_CATEGORIES } from "@/lib/types";
+import type { OverridePatch } from "@/lib/overrides";
 import { sortUnits } from "@/lib/calculations";
 import { SEVERITY_STYLES, rowColorClass, formatDate } from "@/lib/ui";
 
@@ -9,9 +11,12 @@ interface UnitsTableProps {
   managers: Manager[];
   facilities: Facility[];
   cycles: AuctionCycle[];
+  // Admin correction of AI classifications (spec section 16). Omit to
+  // render the table read-only (e.g. inside a report snapshot).
+  onOverride?: (sourceRowKey: string, patch: OverridePatch) => void;
 }
 
-export default function UnitsTable({ units, managers, facilities, cycles }: UnitsTableProps) {
+export default function UnitsTable({ units, managers, facilities, cycles, onOverride }: UnitsTableProps) {
   const sorted = sortUnits(units);
   const managerName = (id: string) => managers.find((m) => m.id === id)?.name ?? id;
   const facilityName = (id: string) => facilities.find((f) => f.id === id)?.name ?? id;
@@ -65,14 +70,70 @@ export default function UnitsTable({ units, managers, facilities, cycles }: Unit
                   {countdown === null ? "—" : countdown < 0 ? `${Math.abs(countdown)}d overdue` : `${countdown}d left`}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">{u.requestStatus}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{u.responsibleParty}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {onOverride ? (
+                    <select
+                      value={u.responsibleParty}
+                      onChange={(e) =>
+                        onOverride(u.sourceRowKey, { responsibleParty: e.target.value as ResponsibleParty })
+                      }
+                      title={
+                        u.manualOverride?.responsibleParty
+                          ? `Corrected by ${u.manualOverride.overriddenBy ?? "admin"} on ${formatDate(
+                              u.manualOverride.overriddenAt?.slice(0, 10) ?? null
+                            )}`
+                          : undefined
+                      }
+                      className={`rounded border bg-transparent px-1 py-0.5 text-sm ${
+                        u.manualOverride?.responsibleParty
+                          ? "border-blue-400 text-blue-700 dark:text-blue-300"
+                          : "border-transparent"
+                      }`}
+                    >
+                      {RESPONSIBLE_PARTIES.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    u.responsibleParty
+                  )}
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap">{formatDate(u.lastFollowUpDate)}</td>
                 <td className="px-3 py-2 text-center">{u.followUpAttempts}</td>
                 <td className="px-3 py-2 text-center">{u.daysWaiting ?? "—"}</td>
                 <td className="px-3 py-2 text-center font-medium">{u.daysOverdue > 0 ? u.daysOverdue : "—"}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  {u.aiIssueCategory}
-                  {u.aiNeedsReview && (
+                  {onOverride ? (
+                    <select
+                      value={u.aiIssueCategory}
+                      onChange={(e) =>
+                        onOverride(u.sourceRowKey, { aiIssueCategory: e.target.value as AIIssueCategory })
+                      }
+                      title={
+                        u.manualOverride?.aiIssueCategory
+                          ? `Corrected by ${u.manualOverride.overriddenBy ?? "admin"} on ${formatDate(
+                              u.manualOverride.overriddenAt?.slice(0, 10) ?? null
+                            )}`
+                          : undefined
+                      }
+                      className={`rounded border bg-transparent px-1 py-0.5 text-sm ${
+                        u.manualOverride?.aiIssueCategory
+                          ? "border-blue-400 text-blue-700 dark:text-blue-300"
+                          : "border-transparent"
+                      }`}
+                    >
+                      {AI_ISSUE_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    u.aiIssueCategory
+                  )}
+                  {u.aiNeedsReview && !u.manualOverride?.aiIssueCategory && (
                     <span className="ml-1 rounded bg-yellow-100 dark:bg-yellow-900/40 px-1 text-[10px] text-yellow-800 dark:text-yellow-300">
                       review
                     </span>

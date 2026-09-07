@@ -1,9 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { AUCTION_UNITS, AUCTION_CYCLES, FACILITIES, MANAGERS } from "@/lib/sheetsImport";
 import { enrichUnits, computeKPIs } from "@/lib/calculations";
 import { applyFilters, EMPTY_FILTERS, type FilterState } from "@/lib/filters";
+import {
+  subscribeOverrides,
+  getOverridesSnapshot,
+  getServerOverridesSnapshot,
+  setOverride,
+  applyOverrides,
+  type OverridePatch,
+} from "@/lib/overrides";
 import KpiCards from "@/components/KpiCards";
 import FilterBar from "@/components/FilterBar";
 import UnitsTable from "@/components/UnitsTable";
@@ -22,12 +30,23 @@ const SECTIONS = [
 ] as const;
 type Section = (typeof SECTIONS)[number];
 
+// No auth in this prototype (see README "Known gaps") — attribute manual
+// corrections to whoever is signed into this session rather than leaving
+// them unattributed.
+const CURRENT_ADMIN_EMAIL = "aseel.sawalha@whitelabelstorage.com";
+
 export default function DashboardPage() {
   const [section, setSection] = useState<Section>("Overview");
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const overrides = useSyncExternalStore(subscribeOverrides, getOverridesSnapshot, getServerOverridesSnapshot);
+
+  function handleOverride(sourceRowKey: string, patch: OverridePatch) {
+    setOverride(sourceRowKey, patch, CURRENT_ADMIN_EMAIL);
+  }
 
   const today = useMemo(() => new Date(), []);
-  const allEnriched = useMemo(() => enrichUnits(AUCTION_UNITS, today), [today]);
+  const correctedUnits = useMemo(() => applyOverrides(AUCTION_UNITS, overrides), [overrides]);
+  const allEnriched = useMemo(() => enrichUnits(correctedUnits, today), [correctedUnits, today]);
   const filtered = useMemo(() => applyFilters(allEnriched, filters), [allEnriched, filters]);
   const kpis = useMemo(() => computeKPIs(filtered), [filtered]);
 
@@ -70,6 +89,7 @@ export default function DashboardPage() {
                 managers={MANAGERS}
                 facilities={FACILITIES}
                 cycles={AUCTION_CYCLES}
+                onOverride={handleOverride}
               />
             </div>
           </div>
@@ -78,7 +98,13 @@ export default function DashboardPage() {
         {section === "Current Auction Units" && (
           <div className="space-y-4">
             <KpiCards kpis={kpis} />
-            <UnitsTable units={filtered} managers={MANAGERS} facilities={FACILITIES} cycles={AUCTION_CYCLES} />
+            <UnitsTable
+              units={filtered}
+              managers={MANAGERS}
+              facilities={FACILITIES}
+              cycles={AUCTION_CYCLES}
+              onOverride={handleOverride}
+            />
           </div>
         )}
 
