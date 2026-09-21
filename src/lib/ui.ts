@@ -1,4 +1,33 @@
-import type { Severity } from "./types";
+import type { AIIssueCategory, RequestStatus, ResponsibleParty, Severity } from "./types";
+
+export const REQUEST_STATUSES: RequestStatus[] = [
+  "Not Requested",
+  "Requested - Awaiting Response",
+  "Responded - Photos Uploaded",
+  "Delayed / No Response",
+  "Escalation Needed",
+  "Completed",
+  "Cancelled / No Longer Going to Auction",
+];
+
+export const RESPONSIBLE_PARTIES: ResponsibleParty[] = ["BOG", "Owner", "Site Manager", "Other", "Unknown", "No Delay"];
+
+export const ISSUE_CATEGORIES: AIIssueCategory[] = [
+  "BOG no response",
+  "BOG delayed response",
+  "Owner delay",
+  "Owner failed to provide photos",
+  "Site Manager follow-up issue",
+  "Access issue",
+  "Scheduling issue",
+  "Incorrect / missing information",
+  "Unit no longer proceeding to auction",
+  "BOG unavailable / turnover",
+  "Facility on hold / offboarding",
+  "No Delay",
+  "Other",
+  "Unknown",
+];
 
 export const SEVERITY_STYLES: Record<Severity, { bg: string; text: string; dot: string; label: string }> = {
   Critical: { bg: "bg-red-50 dark:bg-red-950/40", text: "text-red-700 dark:text-red-300", dot: "bg-red-600", label: "Critical" },

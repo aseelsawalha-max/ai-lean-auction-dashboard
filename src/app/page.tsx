@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AUCTION_UNITS, AUCTION_CYCLES, FACILITIES, MANAGERS } from "@/lib/sheetsImport";
 import { enrichUnits, computeKPIs } from "@/lib/calculations";
 import { applyFilters, EMPTY_FILTERS, type FilterState } from "@/lib/filters";
+import { applyOverrides, loadOverrides, saveOverrides, type OverrideMap } from "@/lib/overrides";
+import type { AIIssueCategory, ResponsibleParty } from "@/lib/types";
 import KpiCards from "@/components/KpiCards";
 import FilterBar from "@/components/FilterBar";
 import UnitsTable from "@/components/UnitsTable";
@@ -22,14 +24,58 @@ const SECTIONS = [
 ] as const;
 type Section = (typeof SECTIONS)[number];
 
+// No auth layer yet (see README), so there's no session user to attribute
+// manual AI-classification corrections to. Falls back to the operator
+// account this environment is provisioned for.
+const CURRENT_ADMIN = "aseel.sawalha@whitelabelstorage.com";
+
 export default function DashboardPage() {
   const [section, setSection] = useState<Section>("Overview");
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [overrides, setOverrides] = useState<OverrideMap>({});
+
+  // Overrides are persisted client-side (localStorage) rather than in a
+  // database — see "Known gaps" in the README. Loaded after mount (not via
+  // lazy useState init) to avoid an SSR/client markup mismatch, since this
+  // page is statically prerendered.
+  useEffect(() => {
+    const stored = loadOverrides();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of persisted overrides from localStorage, not synced state
+    setOverrides(stored);
+  }, []);
 
   const today = useMemo(() => new Date(), []);
-  const allEnriched = useMemo(() => enrichUnits(AUCTION_UNITS, today), [today]);
+  const overriddenUnits = useMemo(() => applyOverrides(AUCTION_UNITS, overrides), [overrides]);
+  const allEnriched = useMemo(() => enrichUnits(overriddenUnits, today), [overriddenUnits, today]);
   const filtered = useMemo(() => applyFilters(allEnriched, filters), [allEnriched, filters]);
   const kpis = useMemo(() => computeKPIs(filtered), [filtered]);
+
+  function handleOverride(unitId: string, patch: { responsibleParty?: ResponsibleParty; aiIssueCategory?: AIIssueCategory }) {
+    setOverrides((prev) => {
+      const existing = prev[unitId];
+      const next: OverrideMap = {
+        ...prev,
+        [unitId]: {
+          responsibleParty: patch.responsibleParty ?? existing?.responsibleParty,
+          aiIssueCategory: patch.aiIssueCategory ?? existing?.aiIssueCategory,
+          overriddenBy: CURRENT_ADMIN,
+          overriddenAt: new Date().toISOString(),
+        },
+      };
+      saveOverrides(next);
+      return next;
+    });
+  }
+
+  function handleResetOverride(unitId: string) {
+    setOverrides((prev) => {
+      if (!(unitId in prev)) return prev;
+      const next = { ...prev };
+      delete next[unitId];
+      saveOverrides(next);
+      return next;
+    });
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
@@ -70,6 +116,8 @@ export default function DashboardPage() {
                 managers={MANAGERS}
                 facilities={FACILITIES}
                 cycles={AUCTION_CYCLES}
+                onOverride={handleOverride}
+                onResetOverride={handleResetOverride}
               />
             </div>
           </div>
@@ -78,7 +126,14 @@ export default function DashboardPage() {
         {section === "Current Auction Units" && (
           <div className="space-y-4">
             <KpiCards kpis={kpis} />
-            <UnitsTable units={filtered} managers={MANAGERS} facilities={FACILITIES} cycles={AUCTION_CYCLES} />
+            <UnitsTable
+              units={filtered}
+              managers={MANAGERS}
+              facilities={FACILITIES}
+              cycles={AUCTION_CYCLES}
+              onOverride={handleOverride}
+              onResetOverride={handleResetOverride}
+            />
           </div>
         )}
 

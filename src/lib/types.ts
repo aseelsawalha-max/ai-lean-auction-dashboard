@@ -89,12 +89,16 @@ export interface AuctionUnit {
   aiConfidenceScore: number; // 0-1
   aiNeedsReview: boolean; // flagged when classification is ambiguous/low-confidence
 
-  // manual correction trail (admins can override AI without losing the AI's original call)
+  // manual correction trail (admins can override AI without losing the AI's original call).
+  // When present, `responsibleParty` / `aiIssueCategory` above already hold the
+  // corrected (effective) values — the AI's original call is preserved here instead.
   manualOverride?: {
     responsibleParty?: ResponsibleParty;
     aiIssueCategory?: AIIssueCategory;
-    overriddenBy?: string;
-    overriddenAt?: string;
+    overriddenBy: string;
+    overriddenAt: string;
+    originalResponsibleParty: ResponsibleParty;
+    originalAIIssueCategory: AIIssueCategory;
   };
 }
 
