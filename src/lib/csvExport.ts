@@ -1,6 +1,8 @@
 import type { EnrichedUnit, Facility, Manager } from "./types";
 
-const COLUMNS: Array<{ header: string; get: (u: EnrichedUnit, ctx: ExportContext) => string | number }> = [
+type ExportColumn = { header: string; get: (u: EnrichedUnit, ctx: ExportContext) => string | number };
+
+const COLUMNS: ExportColumn[] = [
   { header: "Manager", get: (u, ctx) => ctx.managerName(u.managerId) },
   { header: "Facility", get: (u, ctx) => ctx.facilityName(u.facilityId) },
   { header: "Unit Number", get: (u) => u.unitNumber },
@@ -39,17 +41,42 @@ function escapeCsvValue(value: string | number): string {
   return str;
 }
 
+function buildContext(managers: Manager[], facilities: Facility[], cycleNameById: Map<string, string>): ExportContext {
+  const managerById = new Map(managers.map((m) => [m.id, m.name]));
+  const facilityById = new Map(facilities.map((f) => [f.id, f.name]));
+  return {
+    managerName: (id) => managerById.get(id) ?? id,
+    facilityName: (id) => facilityById.get(id) ?? id,
+    cycleName: (id) => cycleNameById.get(id) ?? id,
+  };
+}
+
+export async function downloadUnitsXlsx(
+  filename: string,
+  units: EnrichedUnit[],
+  managers: Manager[],
+  facilities: Facility[],
+  cycleNameById: Map<string, string>
+) {
+  const { default: writeXlsxFile } = await import("write-excel-file/browser");
+  const ctx = buildContext(managers, facilities, cycleNameById);
+  const header = COLUMNS.map((c) => ({ value: c.header, fontWeight: "bold" as const }));
+  const rows = units.map((u) =>
+    COLUMNS.map((c) => {
+      const v = c.get(u, ctx);
+      return typeof v === "number" ? { value: v, type: Number } : { value: String(v), type: String };
+    })
+  );
+  await writeXlsxFile([header, ...rows], { sheet: "Auction Units" }).toFile(filename);
+}
+
 export function unitsToCsv(
   units: EnrichedUnit[],
   managers: Manager[],
   facilities: Facility[],
   cycleNameById: Map<string, string>
 ): string {
-  const ctx: ExportContext = {
-    managerName: (id) => managers.find((m) => m.id === id)?.name ?? id,
-    facilityName: (id) => facilities.find((f) => f.id === id)?.name ?? id,
-    cycleName: (id) => cycleNameById.get(id) ?? id,
-  };
+  const ctx = buildContext(managers, facilities, cycleNameById);
 
   const headerRow = COLUMNS.map((c) => escapeCsvValue(c.header)).join(",");
   const rows = units.map((u) => COLUMNS.map((c) => escapeCsvValue(c.get(u, ctx))).join(","));

@@ -121,7 +121,7 @@ and shouldn't be duplicated into another system.
   by-manager breakdown + action items) and a monthly AI operations report
   (executive summary, root cause breakdown, facility analysis, trend,
   data-driven recommendations).
-- **CSV export** (`src/lib/csvExport.ts`) — exports whatever is currently
+- **CSV + Excel (.xlsx) export** (`src/lib/csvExport.ts`) — exports whatever is currently
   filtered on the dashboard.
 - **Dashboard UI** (`src/app/page.tsx` + `src/components/`) — the six
   navigation sections from the spec (Overview, Current Auction Units,

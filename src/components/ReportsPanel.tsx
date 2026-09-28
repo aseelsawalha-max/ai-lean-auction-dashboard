@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { AuctionCycle, EnrichedUnit, Facility, Manager } from "@/lib/types";
 import { generateWeeklySummary, generateMonthlyReport } from "@/lib/reports";
-import { unitsToCsv, downloadCsv } from "@/lib/csvExport";
+import { unitsToCsv, downloadCsv, downloadUnitsXlsx } from "@/lib/csvExport";
 import { formatDate, formatPct } from "@/lib/ui";
 
 interface ReportsPanelProps {
@@ -28,6 +28,16 @@ export default function ReportsPanel({ allUnits, filteredUnits, managers, facili
     downloadCsv(`auction-units-export-${today.toISOString().slice(0, 10)}.csv`, csv);
   }
 
+  function exportFilteredXlsx() {
+    void downloadUnitsXlsx(
+      `auction-units-export-${today.toISOString().slice(0, 10)}.xlsx`,
+      filteredUnits,
+      managers,
+      facilities,
+      cycleNameById
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
@@ -38,12 +48,20 @@ export default function ReportsPanel({ allUnits, filteredUnits, managers, facili
               Exports respect the filters currently applied on the dashboard ({filteredUnits.length} of {allUnits.length} units).
             </p>
           </div>
-          <button
-            onClick={exportFiltered}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Export CSV (Excel-compatible)
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={exportFiltered}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={exportFilteredXlsx}
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            >
+              Export Excel (.xlsx)
+            </button>
+          </div>
         </div>
       </div>
 
